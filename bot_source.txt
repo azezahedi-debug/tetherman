@@ -1,0 +1,91 @@
+  -----------------------------------------------------------------------------
+  bot.py
+  -----------------------------------------------------------------------------
+  import os import requests from telegram import InlineKeyboardButton,
+  InlineKeyboardMarkup from telegram.ext import Updater, CommandHandler,
+  CallbackQueryHandler, MessageHandler, Filters
+
+  TOKEN = os.getenv(“TOKEN”) ADMIN_ID = os.getenv(“ADMIN_ID”)
+
+  NETWORKS = [“TRC20”, “ERC20”, “BEP20”]
+
+  def get_usdt_price(): try: r =
+  requests.get(“https://api.binance.com/api/v3/ticker/price?symbol=USDTUSDT”)
+  return “1.00” except: return “1.00”
+
+  def start(update, context): keyboard = [ [InlineKeyboardButton(“💰 خرید تتر”,
+  callback_data=“buy”)], [InlineKeyboardButton(“💸 فروش تتر”,
+  callback_data=“sell”)], [InlineKeyboardButton(“💲 قیمت لحظه‌ای تتر”,
+  callback_data=“price”)], [InlineKeyboardButton(“📞 پشتیبانی”,
+  url=“https://t.me/YourSupportID”)]] reply_markup =
+  InlineKeyboardMarkup(keyboard) update.message.reply_text(“سلام! به ربات
+  حرفه‌ای تترمَن خوش اومدی.گزینه انتخاب کن:”, reply_markup=reply_markup)
+
+  def menu(update): keyboard = [ [InlineKeyboardButton(“🏠 بازگشت به منو”,
+  callback_data=“menu”)]] return InlineKeyboardMarkup(keyboard)
+
+  def handle_buttons(update, context): query = update.callback_query
+  query.answer()
+
+  if query.data == “menu”: query.edit_message_text(“به منوی اصلی برگشتی!”,
+  reply_markup=None) return start(query, context)
+
+  if query.data in [“buy”, “sell”]: context.user_data[“action”] = query.data
+  context.user_data[“step”] = “amount” query.edit_message_text(“✔ لطفاً مقدار
+  تتر را وارد کنید:”, reply_markup=menu(query)) return
+
+  if query.data == “price”: price = get_usdt_price()
+  query.edit_message_text(f”💲 قیمت لحظه‌ای تتر: {price} دلار”,
+  reply_markup=menu(query)) return
+
+  def handle_messages(update, context): step = context.user_data.get(“step”)
+  action = context.user_data.get(“action”)
+
+  if step == “amount”: context.user_data[“amount”] = update.message.text
+  context.user_data[“step”] = “network” keyboard = [[InlineKeyboardButton(net,
+  callback_data=f”net_{net}“)] for net in NETWORKS]
+  update.message.reply_text(“✔ لطفاً شبکه موردنظر را انتخاب کنید:”,
+  reply_markup=InlineKeyboardMarkup(keyboard)) return
+
+  if update.callback_query: query = update.callback_query if
+  query.data.startswith(“net_”): network = query.data.replace(“net_”, ““)
+  context.user_data[”network”] = network context.user_data[”step”] =”wallet”
+  query.edit_message_text(“✔ لطفاً آدرس کیف‌پول را ارسال کنید:”,
+  reply_markup=menu(query)) return
+
+  if step == “wallet”: context.user_data[“wallet”] = update.message.text amount
+  = context.user_data[“amount”] action_txt = “خرید” if
+  context.user_data[“action”] == “buy” else “فروش” network =
+  context.user_data[“network”] wallet = context.user_data[“wallet”] user =
+  update.message.from_user
+
+  with open(“orders.txt”, “a”) as f: f.write(f”{user.id} | {action_txt} |
+  {amount} | {network} | {wallet}“)
+
+  context.bot.send_message( chat_id=ADMIN_ID, text=f”📌 سفارش جدید” f”👤 کاربر:
+  @user.username” f”🆔 آیدی: {user.id}” f”🔸 نوع معامله: {action_txt}” f”🔹
+  مقدار: {amount}” f”🔸 شبکه: {network}” f”🔹 کیف پول: {wallet}” )
+
+  update.message.reply_text(“✔ سفارش شما با موفقیت ثبت شد.به‌زودی با شما تماس
+  می‌گیرد.”) context.user_data.clear() return
+
+  def main(): updater = Updater(TOKEN, use_context=True) dp =
+  updater.dispatcher dp.add_handler(CommandHandler(“start”, start))
+  dp.add_handler(CallbackQueryHandler(handle_buttons))
+  dp.add_handler(MessageHandler(Filters.text, handle_messages))
+  updater.start_polling() updater.idle()
+
+  if name == “main”: main()
+  -----------------------------------------------------------------------------
+
+requirements.txt
+
+python-telegram-bot==13.15 requests
+
+  -----------
+  README.md
+  -----------
+
+TetherMan Telegram Bot
+
+A professional USDT buy/sell bot for Telegram using python-telegram-bot.
